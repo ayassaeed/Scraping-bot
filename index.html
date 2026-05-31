@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scraping AI Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --bg2: #1a1d27;
+    --bg3: #22263a;
+    --border: #2e3347;
+    --text: #e8eaf0;
+    --muted: #7b82a0;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --radius: 10px;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Layout ── */
+  .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+  @media (max-width: 768px) { .app { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+  /* ── Sidebar ── */
+  .sidebar { background: var(--bg2); border-right: 1px solid var(--border); padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 1rem; }
+  .logo { display: flex; align-items: center; gap: 10px; padding: 0 0.5rem 1rem; border-bottom: 1px solid var(--border); }
+  .logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .logo-text { font-weight: 600; font-size: 15px; }
+  .logo-sub { font-size: 11px; color: var(--muted); }
+  .sidebar-section { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 0.5rem; margin-top: 0.5rem; }
+  .job-list { display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; }
+  .job-item { padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; border: 1px solid transparent; transition: background 0.15s; }
+  .job-item:hover { background: var(--bg3); }
+  .job-item.active { background: var(--bg3); border-color: var(--border); }
+  .job-url { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .job-meta { font-size: 11px; color: var(--muted); display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.queued, .status-dot.running { background: var(--yellow); animation: pulse 1s infinite; }
+  .status-dot.done { background: var(--green); }
+  .status-dot.failed { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+  /* ── Main ── */
+  .main { display: flex; flex-direction: column; }
+
+  /* ── Top bar ── */
+  .topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .api-key-wrap { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  #api-key-input { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 13px; color: var(--text); width: 220px; font-family: var(--mono); }
+
+  /* ── Content ── */
+  .content { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; flex: 1; max-width: 860px; }
+
+  /* ── Cards ── */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* ── Form elements ── */
+  label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 5px; }
+  input[type=text], input[type=url], textarea, select {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 12px; font-size: 14px; color: var(--text); font-family: inherit; resize: vertical;
+    transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  textarea { min-height: 72px; }
+  select { cursor: pointer; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 540px) { .field-row { grid-template-columns: 1fr; } }
+
+  /* ── Chips ── */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; color: var(--muted); background: var(--bg3); transition: all 0.15s; user-select: none; }
+  .chip:hover { border-color: var(--accent); color: var(--accent2); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Buttons ── */
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 14px; font-family: inherit; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn:hover { background: var(--bg3); border-color: var(--accent); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ── Log/output area ── */
+  .log-area { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; min-height: 100px; max-height: 260px; overflow-y: auto; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+  .log-info { color: var(--blue); }
+  .log-success { color: var(--green); }
+  .log-warn { color: var(--yellow); }
+  .log-error { color: var(--red); }
+
+  /* ── Results ── */
+  .result-grid { display: grid; gap: 10px; }
+  .result-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+  .result-item-num { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .result-field { display: flex; gap: 8px; padding: 2px 0; }
+  .result-key { color: var(--accent2); font-family: var(--mono); font-size: 12px; min-width: 120px; flex-shrink: 0; }
+  .result-val { color: var(--text); word-break: break-all; }
+  .raw-output { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; max-height: 400px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+  .tab { padding: 7px 14px; font-size: 13px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
+
+  /* ── Badge ── */
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-blue { background: rgba(99,102,241,0.15); color: var(--accent2); }
+
+  /* ── Status bar ── */
+  .status-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+  .status-indicator.running { background: var(--yellow); animation: pulse 1s infinite; }
+  .status-indicator.done { background: var(--green); }
+  .status-indicator.error { background: var(--red); }
+
+  /* ── Mobile header ── */
+  .mobile-header { display: none; background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem 1.5rem; }
+  @media (max-width: 768px) { .mobile-header { display: flex; align-items: center; gap: 10px; } }
+
+  .empty-state { text-align: center; color: var(--muted); padding: 2rem; font-size: 14px; }
+
+  /* ── Poll indicator ── */
+  #poll-badge { font-size: 11px; color: var(--yellow); display: none; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">🤖</div>
+      <div>
+        <div class="logo-text">Scraping Bot</div>
+        <div class="logo-sub">AI-powered · v2.0</div>
+      </div>
+    </div>
+    <div class="sidebar-section">Recent jobs</div>
+    <div class="job-list" id="job-list">
+      <div class="empty-state" style="font-size:12px;padding:1rem 0.5rem">No jobs yet. Run a scrape to see history.</div>
+    </div>
+    <button class="btn btn-sm" onclick="refreshJobList()" style="width:100%;justify-content:center">↻ Refresh</button>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="mobile-header">
+      <div class="logo-icon" style="width:32px;height:32px;font-size:16px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;">🤖</div>
+      <strong style="font-size:15px">Scraping AI Bot</strong>
+    </div>
+
+    <div class="topbar">
+      <div class="topbar-title">New scrape job</div>
+      <div class="api-key-wrap">
+        🔑 <input type="text" id="api-key-input" placeholder="API key (if required)" />
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Config card -->
+      <div class="card">
+        <div class="card-title">Configuration</div>
+
+        <div>
+          <label>Target URL</label>
+          <input type="url" id="url" placeholder="https://example.com/products" />
+        </div>
+
+        <div>
+          <label>What to extract</label>
+          <textarea id="goal" placeholder="e.g. all product names, prices, ratings, and URLs on this page"></textarea>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <label>Output format</label>
+            <div class="chips" id="format-chips">
+              <div class="chip active" data-val="json">JSON</div>
+              <div class="chip" data-val="csv">CSV</div>
+              <div class="chip" data-val="markdown">Markdown</div>
+              <div class="chip" data-val="text">Plain text</div>
+            </div>
+          </div>
+          <div>
+            <label>Extraction mode</label>
+            <div class="chips" id="mode-chips">
+              <div class="chip active" data-val="ai">AI-guided</div>
+              <div class="chip" data-val="selectors">CSS selectors</div>
+              <div class="chip" data-val="xpath">XPath</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced -->
+        <details>
+          <summary style="font-size:13px;color:var(--muted);cursor:pointer;user-select:none">Advanced options</summary>
+          <div style="padding-top:12px;display:flex;flex-direction:column;gap:10px">
+            <div class="field-row">
+              <div>
+                <label>Max items</label>
+                <input type="text" id="max-items" value="50" />
+              </div>
+              <div>
+                <label>Timeout (ms)</label>
+                <input type="text" id="timeout" value="15000" />
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;font-size:13px">
+                <input type="checkbox" id="js-mode" checked /> JS rendering (Playwright)
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;font-size:13px">
+                <input type="checkbox" id="pagination" /> Pagination
+              </label>
+            </div>
+            <div id="pagination-opts" style="display:none;gap:10px" class="field-row">
+              <div>
+                <label>Next-page selector</label>
+                <input type="text" id="pagination-sel" placeholder="a.next, li.next > a" />
+              </div>
+              <div>
+                <label>Max pages</label>
+                <input type="text" id="max-pages" value="3" />
+              </div>
+            </div>
+            <div id="custom-selectors-wrap" style="display:none">
+              <label>Custom selectors (JSON) — e.g. {"title":".product-title","price":".price"}</label>
+              <textarea id="custom-selectors" placeholder='{"title": "h2.name", "price": ".price-tag"}' style="font-family:var(--mono);font-size:12px"></textarea>
+            </div>
+          </div>
+        </details>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="runScrape()">▶ Run scraper</button>
+          <button class="btn" onclick="runSync()">⚡ Run (sync)</button>
+          <span id="poll-badge">⏳ Polling...</span>
+        </div>
+      </div>
+
+      <!-- Status card -->
+      <div class="card" id="status-card" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">Live logs</div>
+          <div class="status-bar">
+            <div class="status-indicator" id="status-indicator"></div>
+            <span id="status-text">Idle</span>
+          </div>
+        </div>
+        <div class="log-area" id="log-area"></div>
+      </div>
+
+      <!-- Results card -->
+      <div class="card" id="results-card" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div class="card-title">Results</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="badge badge-green" id="item-count">0 items</span>
+            <button class="btn btn-sm" onclick="copyResult()">⎘ Copy</button>
+            <button class="btn btn-sm" onclick="downloadResult()">↓ Download</button>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" data-tab="preview" onclick="switchTab(this,'preview')">Preview</div>
+          <div class="tab" data-tab="raw" onclick="switchTab(this,'raw')">Raw output</div>
+        </div>
+        <div id="preview-pane"></div>
+        <div id="raw-pane" style="display:none"><div class="raw-output" id="raw-area"></div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '';   // same origin — no need for absolute URL
+  let selectedFormat = 'json', selectedMode = 'ai';
+  let lastResult = '', lastJobId = null, pollTimer = null;
+
+  // ── Chip selection ──────────────────────────────────────────────
+  document.querySelectorAll('#format-chips .chip').forEach(c => {
+    c.addEventListener('click', () => {
+      document.querySelectorAll('#format-chips .chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active'); selectedFormat = c.dataset.val;
+    });
+  });
+  document.querySelectorAll('#mode-chips .chip').forEach(c => {
+    c.addEventListener('click', () => {
+      document.querySelectorAll('#mode-chips .chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active'); selectedMode = c.dataset.val;
+      document.getElementById('custom-selectors-wrap').style.display =
+        (selectedMode === 'selectors' || selectedMode === 'xpath') ? 'block' : 'none';
+    });
+  });
+
+  document.getElementById('pagination').addEventListener('change', e => {
+    document.getElementById('pagination-opts').style.display = e.target.checked ? 'grid' : 'none';
+  });
+
+  // ── Auth header ──────────────────────────────────────────────────
+  function headers() {
+    const key = document.getElementById('api-key-input').value.trim();
+    const h = { 'Content-Type': 'application/json' };
+    if (key) h['x-api-key'] = key;
+    return h;
+  }
+
+  // ── Build request body ───────────────────────────────────────────
+  function buildBody() {
+    const url = document.getElementById('url').value.trim();
+    const goal = document.getElementById('goal').value.trim();
+    if (!url || !goal) { alert('Please enter a URL and describe what to extract.'); return null; }
+
+    let selectors;
+    const raw = document.getElementById('custom-selectors').value.trim();
+    if (raw) { try { selectors = JSON.parse(raw); } catch { alert('Invalid JSON in custom selectors.'); return null; } }
+
+    const pagination = document.getElementById('pagination').checked;
+    return {
+      url, goal, format: selectedFormat, mode: selectedMode,
+      ...(selectors ? { selectors } : {}),
+      options: {
+        maxItems: parseInt(document.getElementById('max-items').value) || 50,
+        timeout: parseInt(document.getElementById('timeout').value) || 15000,
+        javascript: document.getElementById('js-mode').checked,
+        pagination,
+        ...(pagination ? {
+          paginationSelector: document.getElementById('pagination-sel').value.trim(),
+          maxPages: parseInt(document.getElementById('max-pages').value) || 3,
+        } : {}),
+      },
+    };
+  }
+
+  // ── Logging helpers ──────────────────────────────────────────────
+  function showStatus(state, text) {
+    document.getElementById('status-card').style.display = 'flex';
+    const ind = document.getElementById('status-indicator');
+    ind.className = 'status-indicator' + (state ? ' ' + state : '');
+    document.getElementById('status-text').textContent = text;
+  }
+
+  function appendLog(text, cls = '') {
+    const el = document.getElementById('log-area');
+    const line = document.createElement('div');
+    if (cls) line.className = 'log-' + cls;
+    line.textContent = text;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function clearLog() { document.getElementById('log-area').innerHTML = ''; }
+
+  // ── Async scrape + poll ──────────────────────────────────────────
+  async function runScrape() {
+    const body = buildBody(); if (!body) return;
+    clearLog(); showStatus('running', 'Queuing job...');
+    document.getElementById('results-card').style.display = 'none';
+
+    try {
+      const res = await fetch(`${API}/api/scrape`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { showStatus('error', 'Error'); appendLog(data.error, 'error'); return; }
+
+      lastJobId = data.jobId;
+      appendLog(`Job queued: ${data.jobId}`, 'info');
+      appendLog('Polling for results...');
+      document.getElementById('poll-badge').style.display = 'inline';
+      startPolling(data.jobId);
+      refreshJobList();
+    } catch (e) { showStatus('error', 'Network error'); appendLog(e.message, 'error'); }
+  }
+
+  function startPolling(jobId) {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(() => pollJob(jobId), 1500);
+  }
+
+  let lastLogCount = 0;
+  async function pollJob(jobId) {
+    try {
+      const res = await fetch(`${API}/api/jobs/${jobId}`, { headers: headers() });
+      const job = await res.json();
+
+      // Show new logs
+      const newLogs = job.logs.slice(lastLogCount);
+      newLogs.forEach(l => appendLog(l.message, l.level === 'error' ? 'error' : l.level === 'warn' ? 'warn' : ''));
+      lastLogCount = job.logs.length;
+
+      if (job.status === 'done') {
+        clearInterval(pollTimer); pollTimer = null; lastLogCount = 0;
+        document.getElementById('poll-badge').style.display = 'none';
+        showStatus('done', `Done — ${job.result.itemCount} items`);
+        showResults(job.result);
+        refreshJobList();
+      } else if (job.status === 'failed') {
+        clearInterval(pollTimer); pollTimer = null; lastLogCount = 0;
+        document.getElementById('poll-badge').style.display = 'none';
+        showStatus('error', 'Failed');
+        appendLog(job.error, 'error');
+        refreshJobList();
+      } else {
+        showStatus('running', job.status === 'running' ? 'Scraping...' : 'Queued...');
+      }
+    } catch (e) { appendLog('Poll error: ' + e.message, 'warn'); }
+  }
+
+  // ── Sync scrape ──────────────────────────────────────────────────
+  async function runSync() {
+    const body = buildBody(); if (!body) return;
+    clearLog(); showStatus('running', 'Scraping (sync)...');
+    document.getElementById('results-card').style.display = 'none';
+    appendLog('Running synchronous scrape...', 'info');
+
+    try {
+      const res = await fetch(`${API}/api/scrape/sync`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { showStatus('error', 'Failed'); appendLog(data.error, 'error'); return; }
+
+      data.result.logs?.forEach(l => appendLog(l.message, l.level === 'error' ? 'error' : ''));
+      showStatus('done', `Done — ${data.result.itemCount} items`);
+      showResults(data.result);
+      refreshJobList();
+    } catch (e) { showStatus('error', 'Error'); appendLog(e.message, 'error'); }
+  }
+
+  // ── Render results ───────────────────────────────────────────────
+  function showResults(result) {
+    lastResult = result.output;
+    document.getElementById('results-card').style.display = 'flex';
+    document.getElementById('item-count').textContent = `${result.itemCount} items`;
+    document.getElementById('raw-area').textContent = result.output;
+
+    const preview = document.getElementById('preview-pane');
+    if (result.format === 'json' && Array.isArray(result.items) && result.items.length) {
+      const keys = Object.keys(result.items[0]);
+      preview.innerHTML = result.items.slice(0, 8).map((item, i) => `
+        <div class="result-item">
+          <div class="result-item-num">Item ${i + 1}</div>
+          ${keys.map(k => `<div class="result-field"><span class="result-key">${k}</span><span class="result-val">${item[k] ?? '<span style="color:var(--muted)">null</span>'}</span></div>`).join('')}
+        </div>`).join('') +
+        (result.items.length > 8 ? `<div style="color:var(--muted);font-size:12px;padding:6px 0">...and ${result.items.length - 8} more — see Raw output tab.</div>` : '');
+    } else {
+      preview.innerHTML = `<div class="raw-output">${escHtml(result.output)}</div>`;
+    }
+  }
+
+  function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function switchTab(el, tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('preview-pane').style.display = tab === 'preview' ? 'block' : 'none';
+    document.getElementById('raw-pane').style.display = tab === 'raw' ? 'block' : 'none';
+  }
+
+  function copyResult() {
+    navigator.clipboard.writeText(lastResult);
+  }
+
+  function downloadResult() {
+    const ext = { json: 'json', csv: 'csv', markdown: 'md', text: 'txt' }[selectedFormat] || 'txt';
+    const blob = new Blob([lastResult], { type: 'text/plain' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `scrape-${Date.now()}.${ext}`; a.click();
+  }
+
+  // ── Job history sidebar ──────────────────────────────────────────
+  async function refreshJobList() {
+    try {
+      const res = await fetch(`${API}/api/jobs`, { headers: headers() });
+      if (!res.ok) return;
+      const jobs = await res.json();
+      const list = document.getElementById('job-list');
+      if (!jobs.length) {
+        list.innerHTML = '<div class="empty-state" style="font-size:12px;padding:1rem 0.5rem">No jobs yet.</div>';
+        return;
+      }
+      list.innerHTML = jobs.map(j => `
+        <div class="job-item ${j.jobId === lastJobId ? 'active' : ''}" onclick="loadJob('${j.jobId}')">
+          <div class="job-url">${j.url || 'Unknown URL'}</div>
+          <div class="job-meta">
+            <div class="status-dot ${j.status}"></div>
+            <span>${j.status}</span>
+            <span>·</span>
+            <span>${timeAgo(j.createdAt)}</span>
+          </div>
+        </div>`).join('');
+    } catch {}
+  }
+
+  async function loadJob(jobId) {
+    lastJobId = jobId; lastLogCount = 0;
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    try {
+      const res = await fetch(`${API}/api/jobs/${jobId}`, { headers: headers() });
+      const job = await res.json();
+      clearLog();
+      showStatus(job.status === 'done' ? 'done' : job.status === 'failed' ? 'error' : 'running',
+        job.status === 'done' ? `Done — ${job.result?.itemCount} items` : job.status);
+      job.logs.forEach(l => appendLog(l.message, l.level === 'error' ? 'error' : ''));
+      document.getElementById('status-card').style.display = 'flex';
+      if (job.status === 'done' && job.result) showResults(job.result);
+      else if (job.status === 'running' || job.status === 'queued') {
+        lastLogCount = job.logs.length;
+        document.getElementById('poll-badge').style.display = 'inline';
+        startPolling(jobId);
+      }
+      refreshJobList();
+    } catch (e) { appendLog('Failed to load job: ' + e.message, 'error'); }
+  }
+
+  function timeAgo(ts) {
+    const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    return `${Math.floor(s/3600)}h ago`;
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────
+  refreshJobList();
+  setInterval(refreshJobList, 10000);
+</script>
+</body>
+</html>
