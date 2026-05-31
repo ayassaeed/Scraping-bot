@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: scraping-ai-bot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ANTHROPIC_API_KEY
+        sync: false          # Set manually in Render dashboard
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: scraping-bot-redis
+          property: connectionString
+      - key: API_KEYS
+        sync: false          # Set manually in Render dashboard
+    healthCheckPath: /api/health
+    autoDeploy: true
+
+  - type: redis
+    name: scraping-bot-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
